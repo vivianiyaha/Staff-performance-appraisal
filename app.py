@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import os
@@ -6,10 +7,13 @@ import plotly.express as px
 # ======================================================
 # CONFIGURATION
 # ======================================================
-st.set_page_config(page_title="Staff Appraisal System", layout="wide")
+st.set_page_config(
+    page_title="Staff Appraisal System",
+    layout="wide"
+)
 
 # ======================================================
-# CUSTOM CSS (Orange, Black, White Theme)
+# CUSTOM CSS
 # ======================================================
 st.markdown("""
 <style>
@@ -28,7 +32,9 @@ st.markdown("""
 # ======================================================
 # TITLE
 # ======================================================
-st.title("Staff Performance Appraisal Dashboard")
+st.title(
+    "Staff Performance Appraisal Dashboard"
+)
 
 # ======================================================
 # PATH TO REPORTS
@@ -36,11 +42,42 @@ st.title("Staff Performance Appraisal Dashboard")
 BASE_DIR = "reports"
 
 # ======================================================
+# LOAD EMPLOYEE MASTER LIST
+# employee.csv format:
+# Name
+# John Doe
+# Mary James
+# ======================================================
+employee_file = "employee.csv"
+
+if os.path.exists(employee_file):
+
+    employee_df = pd.read_csv(
+        employee_file
+    )
+
+    employee_df.columns = (
+        employee_df.columns
+        .str.strip()
+    )
+
+else:
+    st.error(
+        "employee.csv file not found"
+    )
+    st.stop()
+
+# ======================================================
 # GET MONTH FOLDERS
 # ======================================================
 month_folders = sorted([
     f for f in os.listdir(BASE_DIR)
-    if os.path.isdir(os.path.join(BASE_DIR, f))
+    if os.path.isdir(
+        os.path.join(
+            BASE_DIR,
+            f
+        )
+    )
 ])
 
 selected_month = st.selectbox(
@@ -54,12 +91,14 @@ month_path = os.path.join(
 )
 
 # ======================================================
-# LOAD ALL CSV FILES FOR MONTHLY DASHBOARD
+# LOAD ALL CSV FILES
 # ======================================================
 all_month_data = []
 
 files = [
-    f for f in os.listdir(month_path)
+    f for f in os.listdir(
+        month_path
+    )
     if f.endswith(".csv")
 ]
 
@@ -69,15 +108,24 @@ selected_file = st.selectbox(
 )
 
 for file in files:
+
     file_path = os.path.join(
         month_path,
         file
     )
 
     try:
-        temp_df = pd.read_csv(file_path)
-        temp_df["Source_File"] = file
-        all_month_data.append(temp_df)
+        temp_df = pd.read_csv(
+            file_path
+        )
+
+        temp_df["Source_File"] = (
+            file
+        )
+
+        all_month_data.append(
+            temp_df
+        )
 
     except Exception as e:
         st.warning(
@@ -85,7 +133,7 @@ for file in files:
         )
 
 # ======================================================
-# MONTHLY COMBINED DATA
+# MONTHLY DATA
 # ======================================================
 monthly_df = pd.concat(
     all_month_data,
@@ -93,7 +141,8 @@ monthly_df = pd.concat(
 )
 
 monthly_df.columns = (
-    monthly_df.columns.str.strip()
+    monthly_df.columns
+    .str.strip()
 )
 
 # ======================================================
@@ -105,7 +154,11 @@ file_path = os.path.join(
 )
 
 df = pd.read_csv(file_path)
-df.columns = df.columns.str.strip()
+
+df.columns = (
+    df.columns
+    .str.strip()
+)
 
 # ======================================================
 # TASK SCORE FUNCTION
@@ -120,11 +173,10 @@ def task_score(x):
     elif x == "partially":
         return 0.5
 
-    else:
-        return 0
+    return 0
 
 # ======================================================
-# DAILY PERFORMANCE CALCULATION
+# DAILY PERFORMANCE
 # ======================================================
 df["Task1_Score"] = df[
     "Was Task 1 completed?"
@@ -142,37 +194,148 @@ df["Daily_Score"] = (
 ) * 100
 
 # ======================================================
-# MONTHLY PERFORMANCE CALCULATION
+# MONTHLY PERFORMANCE
 # ======================================================
-monthly_df["Task1_Score"] = monthly_df[
-    "Was Task 1 completed?"
-].apply(task_score)
+monthly_df["Task1_Score"] = (
+    monthly_df[
+        "Was Task 1 completed?"
+    ].apply(task_score)
+)
 
-monthly_df["Task2_Score"] = monthly_df[
-    "Was Task 2 completed?"
-].apply(task_score)
+monthly_df["Task2_Score"] = (
+    monthly_df[
+        "Was Task 2 completed?"
+    ].apply(task_score)
+)
 
 monthly_df["Daily_Score"] = (
     (
-        monthly_df["Task1_Score"] +
-        monthly_df["Task2_Score"]
+        monthly_df[
+            "Task1_Score"
+        ] +
+        monthly_df[
+            "Task2_Score"
+        ]
     ) / 2
 ) * 100
 
 # ======================================================
-# GROUP BY STAFF (MONTHLY VIEW)
+# GROUP BY STAFF
 # ======================================================
 performance = monthly_df.groupby(
-    ["Name", "Department", "Designation"]
+    [
+        "Name",
+        "Department",
+        "Designation"
+    ]
 ).agg({
     "Task1_Score": "mean",
     "Task2_Score": "mean",
     "Daily_Score": "mean"
 }).reset_index()
 
-performance["Performance %"] = performance[
-    "Daily_Score"
-]
+performance["Performance %"] = (
+    performance["Daily_Score"]
+)
+
+# ======================================================
+# ADD NON-SUBMITTERS
+# ======================================================
+submitted_staff = set(
+    monthly_df["Name"]
+    .astype(str)
+    .str.strip()
+)
+
+all_staff = set(
+    employee_df["Name"]
+    .astype(str)
+    .str.strip()
+)
+
+missing_staff = (
+    all_staff -
+    submitted_staff
+)
+
+missing_records = []
+
+for staff in missing_staff:
+
+    missing_records.append({
+        "Name": staff,
+        "Department":
+        "Not Submitted",
+        "Designation":
+        "Not Submitted",
+        "Task1_Score": 0,
+        "Task2_Score": 0,
+        "Daily_Score": 0,
+        "Performance %": 0
+    })
+
+if missing_records:
+
+    missing_df = pd.DataFrame(
+        missing_records
+    )
+
+    performance = pd.concat(
+        [
+            performance,
+            missing_df
+        ],
+        ignore_index=True
+    )
+
+# ======================================================
+# TRACK STAFF WHO MISSED 3+ TIMES
+# ======================================================
+missed_tracking = []
+
+for staff in all_staff:
+
+    missed_count = 0
+
+    for file in files:
+
+        try:
+
+            temp_df = pd.read_csv(
+                os.path.join(
+                    month_path,
+                    file
+                )
+            )
+
+            temp_df.columns = (
+                temp_df.columns
+                .str.strip()
+            )
+
+            submitted_names = set(
+                temp_df["Name"]
+                .astype(str)
+                .str.strip()
+            )
+
+            if staff not in submitted_names:
+                missed_count += 1
+
+        except:
+            pass
+
+    if missed_count >= 3:
+
+        missed_tracking.append({
+            "Name": staff,
+            "Missed Submission":
+            missed_count
+        })
+
+missed_df = pd.DataFrame(
+    missed_tracking
+)
 
 # ======================================================
 # RANKING
@@ -186,8 +349,13 @@ performance["Rank"] = (
     performance.index + 1
 )
 
-top_performers = performance.head(5)
-low_performers = performance.tail(5)
+top_performers = (
+    performance.head(5)
+)
+
+low_performers = (
+    performance.tail(5)
+)
 
 # ======================================================
 # DASHBOARD METRICS
@@ -226,8 +394,12 @@ st.subheader(
     "Performance Distribution"
 )
 
-performance["Performance Band"] = pd.cut(
-    performance["Performance %"],
+performance[
+    "Performance Band"
+] = pd.cut(
+    performance[
+        "Performance %"
+    ],
     bins=[0, 50, 75, 100],
     labels=[
         "Low",
@@ -293,14 +465,14 @@ st.plotly_chart(
 col1, col2 = st.columns(2)
 
 with col1:
+
     st.subheader(
         "🏆 Top Performers"
     )
 
     top_performers_display = (
-        top_performers.reset_index(
-            drop=True
-        )
+        top_performers
+        .reset_index(drop=True)
     )
 
     top_performers_display.index = (
@@ -313,14 +485,14 @@ with col1:
     )
 
 with col2:
+
     st.subheader(
         "⚠️ Low Performers"
     )
 
     low_performers_display = (
-        low_performers.reset_index(
-            drop=True
-        )
+        low_performers
+        .reset_index(drop=True)
     )
 
     low_performers_display.index = (
@@ -333,6 +505,32 @@ with col2:
     )
 
 # ======================================================
+# MISSED 3+ SUBMISSIONS ONLY
+# ======================================================
+st.subheader(
+    "Staff That Failed To Submit 3+ Times"
+)
+
+if not missed_df.empty:
+
+    missed_df.index = (
+        range(
+            1,
+            len(missed_df) + 1
+        )
+    )
+
+    st.dataframe(
+        missed_df,
+        use_container_width=True
+    )
+
+else:
+    st.success(
+        "No staff missed submission 3 times."
+    )
+
+# ======================================================
 # FULL TABLE
 # ======================================================
 st.subheader(
@@ -340,7 +538,8 @@ st.subheader(
 )
 
 performance_display = (
-    performance.reset_index(drop=True)
+    performance
+    .reset_index(drop=True)
 )
 
 performance_display.index = (
@@ -353,164 +552,23 @@ st.dataframe(
 )
 
 # ======================================================
-# QUARTERLY DASHBOARD
-# ======================================================
-st.subheader(
-    "Quarterly Dashboard"
-)
-
-quarter_mapping = {
-    "January": "Q1",
-    "February": "Q1",
-    "March": "Q1",
-    "April": "Q2",
-    "May": "Q2",
-    "June": "Q2",
-    "July": "Q3",
-    "August": "Q3",
-    "September": "Q3",
-    "October": "Q4",
-    "November": "Q4",
-    "December": "Q4",
-}
-
-selected_quarter = (
-    quarter_mapping.get(
-        selected_month,
-        "Q1"
-    )
-)
-
-quarter_months = [
-    month
-    for month, q
-    in quarter_mapping.items()
-    if q == selected_quarter
-]
-
-quarterly_data = []
-
-for month in quarter_months:
-
-    q_path = os.path.join(
-        BASE_DIR,
-        month
-    )
-
-    if os.path.exists(q_path):
-
-        q_files = [
-            f for f in os.listdir(
-                q_path
-            )
-            if f.endswith(".csv")
-        ]
-
-        for file in q_files:
-
-            try:
-                temp = pd.read_csv(
-                    os.path.join(
-                        q_path,
-                        file
-                    )
-                )
-
-                quarterly_data.append(
-                    temp
-                )
-
-            except:
-                pass
-
-if quarterly_data:
-
-    quarterly_df = pd.concat(
-        quarterly_data,
-        ignore_index=True
-    )
-
-    quarterly_df.columns = (
-        quarterly_df.columns.str.strip()
-    )
-
-    quarterly_df["Task1_Score"] = (
-        quarterly_df[
-            "Was Task 1 completed?"
-        ].apply(task_score)
-    )
-
-    quarterly_df["Task2_Score"] = (
-        quarterly_df[
-            "Was Task 2 completed?"
-        ].apply(task_score)
-    )
-
-    quarterly_df["Daily_Score"] = (
-        quarterly_df[
-            "Task1_Score"
-        ] +
-        quarterly_df[
-            "Task2_Score"
-        ]
-    ) / 2 * 100
-
-    quarterly_performance = (
-        quarterly_df.groupby(
-            "Name"
-        )["Daily_Score"]
-        .mean()
-        .reset_index()
-    )
-
-    quarterly_performance.rename(
-        columns={
-            "Daily_Score":
-            "Quarterly Performance %"
-        },
-        inplace=True
-    )
-
-    quarterly_performance.index = (
-        quarterly_performance.index + 1
-    )
-
-    fig_quarter = px.bar(
-        quarterly_performance,
-        x="Name",
-        y="Quarterly Performance %",
-        text="Quarterly Performance %",
-        color="Quarterly Performance %",
-        color_continuous_scale=[
-            "black",
-            "orange",
-            "white"
-        ]
-    )
-
-    st.plotly_chart(
-        fig_quarter,
-        use_container_width=True
-    )
-
-    st.dataframe(
-        quarterly_performance,
-        use_container_width=True
-    )
-
-# ======================================================
-# CHALLENGES SUMMARY
+# DAILY CHALLENGES
 # ======================================================
 st.subheader(
     "Daily Challenges Report"
 )
 
-if "Challenges faced during the day" in df.columns:
+if (
+    "Challenges faced during the day"
+    in df.columns
+):
 
     challenge_df = df[[
         "Name",
         "Challenges faced during the day"
-    ]].reset_index(drop=True)
+    ]].reset_index(
+        drop=True
+    )
 
     challenge_df.index = (
         challenge_df.index + 1
@@ -519,4 +577,6 @@ if "Challenges faced during the day" in df.columns:
     st.dataframe(
         challenge_df,
         use_container_width=True
-)
+    )
+```
+        
