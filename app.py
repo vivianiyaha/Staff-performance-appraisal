@@ -578,5 +578,4 @@ if (
         challenge_df,
         use_container_width=True
     )
-```
         
